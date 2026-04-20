@@ -1,0 +1,1 @@
+"""Jamovi MCP server package."""
