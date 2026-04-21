@@ -9,6 +9,11 @@ Validacion de cumplimiento entre:
 - Resultado: cumplimiento parcial
 - Bloqueadores criticos: gestion de sesion, mapeo de errores, traduccion GUI dinamica, contrato de serializacion extendido
 
+## Revision de nuevas especificaciones
+- SPEC-004Expansion del Catalogo Estadistico.md: no implementada en runtime
+- SPEC-005 Serializacion de Resultados R6 a JSON-MD.md: implementacion parcial (solo descriptives$asDF)
+- SPEC-006 Motor de Traduccion a Instrucciones GUI.md: implementacion parcial (instruccion fija, no motor dinamico)
+
 ## Matriz de cumplimiento
 
 1. GUI-TRANS-01
@@ -45,6 +50,36 @@ Validacion de cumplimiento entre:
 - Estado: parcial
 - Evidencia: [Dockerfile](../../Dockerfile) instala R y paquetes criticos; define /data.
 - Gap: no hay enforcement de truncamiento JSON en runtime.
+
+## Matriz por SPEC nueva
+
+1. SPEC-004 Expansion del Catalogo Estadistico
+- Estado: no cumple
+- Cobertura actual: solo [tool_run_descriptives](../../src/jamovi_mcp/server.py).
+- Requerido por spec: jmv_ttestIS y jmv_corrMatrix con validaciones de esquema y columnas.
+- Gap critico: no existen modelos Pydantic para estas herramientas ni validacion de group con 2 niveles.
+
+2. SPEC-005 Serializacion R6 a JSON/Markdown
+- Estado: parcial
+- Cobertura actual: extraccion puntual de [result$descriptives$asDF](../../src/jamovi_mcp/r_bridge.py).
+- Requerido por spec: iterar res$items, extraer tablas/notas, producir JSON estructurado y bloque Markdown.
+- Gap critico: no existe serializador generico ni traduccion de errores por palabras clave.
+
+3. SPEC-006 Motor de Traduccion GUI
+- Estado: parcial
+- Cobertura actual: texto fijo gui_instructions en [server.py](../../src/jamovi_mcp/server.py).
+- Requerido por spec: servicio GUITranslator con static mapping por tool, menu_path, param_map y texto dinamico.
+- Gap critico: no existe modulo de traduccion ni contrato de salida dinamico por parametros.
+
+## Orden recomendado de implementacion
+1. SPEC-005 primero: crear serializador robusto y mapper de errores para estabilizar salidas.
+2. SPEC-004 segundo: agregar herramientas ttestIS y corrMatrix reutilizando serializador/errores.
+3. SPEC-006 tercero: agregar GUITranslator y conectar salida dinamica en cada tool.
+
+## Criterio de cierre sugerido para este bloque
+- Se ejecuta descriptives, ttestIS y corrMatrix devolviendo JSON estable + gui_instructions dinamico.
+- Los errores de validacion de factor, varianza y NA devuelven codigo/mensaje accionable.
+- Toda salida tabular respeta el contrato de serializacion con metadatos y truncamiento.
 
 ## Acciones recomendadas para cerrar Fase 2
 1. Implementar modulo session_manager con cache por session_id y fingerprint de dataset.
