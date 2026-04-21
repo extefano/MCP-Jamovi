@@ -2,7 +2,10 @@
 FROM python:3.10-slim
 
 # Evitar prompts durante la instalación
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    JAMOVI_DATA_ROOT=/data
 
 # 1. Instalar dependencias de sistema para R y sus paquetes estadísticos
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -28,10 +31,11 @@ RUN R -e "install.packages(c('jmv', 'jmvReadWrite', 'jsonlite'), repos='https://
 # 3. Configurar entorno Python
 WORKDIR /app
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+COPY src/ ./src/
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
 
 # 4. Copiar código fuente
-COPY src/ ./src/
 
 # 5. Crear punto de montaje para datos (Lectura únicamente según CON-02)
 RUN mkdir /data
