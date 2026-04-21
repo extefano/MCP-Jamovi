@@ -1,22 +1,44 @@
-FROM rocker/r-ver:4.3.3
+# Dockerfile optimizado para entorno Híbrido Python-R (jamovi MCP)
+FROM python:3.10-slim
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    JAMOVI_DATA_ROOT=/data
+# Evitar prompts durante la instalación
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-pip python3-venv curl ca-certificates \
+# 1. Instalar dependencias de sistema para R y sus paquetes estadísticos
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    r-base \
+    r-base-dev \
+    libxml2-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libfontconfig1-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN R -q -e "install.packages(c('jmv', 'jmvReadWrite', 'jsonlite'), repos='https://cloud.r-project.org')"
+# 2. Instalar paquetes de R críticos para jamovi
+# jmv: El motor estadístico
+# jmvReadWrite: Para manejar archivos .omv
+RUN R -e "install.packages(c('jmv', 'jmvReadWrite', 'jsonlite'), repos='https://cloud.r-project.org/')"
 
+# 3. Configurar entorno Python
 WORKDIR /app
+COPY pyproject.toml .
+RUN pip install --no-cache-dir .
 
-COPY pyproject.toml /app/pyproject.toml
-COPY src /app/src
+# 4. Copiar código fuente
+COPY src/ ./src/
 
-RUN python3 -m pip install --no-cache-dir --upgrade pip \
-    && python3 -m pip install --no-cache-dir .
+# 5. Crear punto de montaje para datos (Lectura únicamente según CON-02)
+RUN mkdir /data
+VOLUME /data
 
-CMD ["python3", "-m", "jamovi_mcp"]
+# 6. Exponer puerto si se usa SSE (aunque por defecto es stdio)
+EXPOSE 8000
+
+# Comando por defecto para iniciar el servidor MCP
+ENTRYPOINT ["python", "-m", "jamovi_mcp"]
