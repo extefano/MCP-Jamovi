@@ -1,6 +1,6 @@
 # SPEC-001: Pipeline SDD para MCP jamovi
 
-Estado: Draft Ready for Planning  
+Estado: Ready for Implementation  
 Fecha: 2026-04-27  
 Owner: MCP jamovi team
 
@@ -93,7 +93,18 @@ CA-03: Respuesta de `jmv_ttestIS` incluye `tables`, `markdown` y `gui_instructio
 CA-04: GUI translator obtiene etiquetas de controles desde `*.u.yaml` y no desde mapa hardcodeado.  
 CA-05: Al menos 2 errores R del mapa estatico son traducidos con codigo y sugerencia correctos.
 
-## 9) Regla de Ejecucion Iterativa
+## 9) Criterios de Exito (Success Criteria)
+
+**SC-01** *(mapeado a RNF-02)*  
+El sistema debe forzar el montaje del volumen `/data` en modo solo lectura (RO). Debe existir una prueba automatizada que falle al intentar realizar una operacion de escritura en dicho volumen. Verificacion: Test de integracion ejecuta escritura en `/data` y valida que el contenedor rechaza la operacion con codigo de error apropiado.
+
+**SC-02** *(mapeado a RNF-03)*  
+La reutilizacion de un `session_id` existente debe arrojar una latencia de respuesta p95 menor a 500ms para datasets de hasta 100,000 filas. Verificacion: Benchmark automatizado ejecuta 100 llamadas consecutivas reutilizando `session_id` y valida percentil 95 de latencia.
+
+**SC-03** *(mapeado a RNF-04)*  
+El esquema de respuesta JSON de todas las herramientas MCP debe incluir obligatoriamente los campos `analysis_name` y `session_id` en el nivel raiz de la respuesta. Verificacion: Validador de esquema automatizado examina cada respuesta y falla si alguno de estos campos esta ausente o es nulo.
+
+## 10) Regla de Ejecucion Iterativa
 
 Por cada nuevo analisis a exponer (`anova`, `regression`, `frequencies`, etc.) se debe crear un subdirectorio nuevo en `specs/` y repetir el ciclo completo:
 
