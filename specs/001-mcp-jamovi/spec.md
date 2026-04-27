@@ -96,7 +96,7 @@ CA-05: Al menos 2 errores R del mapa estatico son traducidos con codigo y sugere
 ## 9) Criterios de Exito (Success Criteria)
 
 **SC-01** *(mapeado a RNF-02)*  
-El sistema debe forzar el montaje del volumen `/data` en modo solo lectura (RO). Debe existir una prueba automatizada que falle al intentar realizar una operacion de escritura en dicho volumen. Verificacion: Test de integracion ejecuta escritura en `/data` y valida que el contenedor rechaza la operacion con codigo de error apropiado.
+El sistema debe forzar el montaje del volumen `/data` en modo solo lectura (RO). Si se detecta intento de escritura, el servidor debe retornar error JSON-RPC `-32602`. Verificacion: Test de integracion ejecuta escritura en `/data` y valida rechazo de la operacion con codigo `-32602`.
 
 **SC-02** *(mapeado a RNF-03)*  
 La reutilizacion de un `session_id` existente debe arrojar una latencia de respuesta p95 menor a 500ms para datasets de hasta 100,000 filas. Verificacion: Benchmark automatizado ejecuta 100 llamadas consecutivas reutilizando `session_id` y valida percentil 95 de latencia.
