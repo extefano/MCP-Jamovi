@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .yaml_reader import extract_control_titles, infer_menu_path, load_ui_yaml
+
 
 @dataclass(frozen=True)
 class ToolGuide:
@@ -41,17 +43,35 @@ GUIDE_MAP: dict[str, ToolGuide] = {
 
 
 def build_gui_instructions(tool_name: str, params: dict) -> str:
+    yaml_tree = load_ui_yaml(tool_name)
+    yaml_titles = extract_control_titles(yaml_tree) if yaml_tree is not None else {}
+
     guide = GUIDE_MAP.get(tool_name)
-    if guide is None:
+    if guide is None and not yaml_titles:
         return "No hay guia GUI disponible para esta herramienta."
+
+    menu_path = infer_menu_path(yaml_tree) if yaml_tree is not None else None
+    if not menu_path and guide is not None:
+        menu_path = guide.menu_path
+    if not menu_path:
+        menu_path = "Analyses"
+
+    static_param_map = guide.param_map if guide is not None else {}
+
+    def resolve_label(key: str, default_label: str) -> str:
+        if key in yaml_titles:
+            return yaml_titles[key]
+        if key in static_param_map:
+            return static_param_map[key]
+        return default_label
 
     lines: list[str] = [
         "Para replicar este analisis en la aplicacion de escritorio jamovi:",
-        f"Haga clic en el menu {guide.menu_path}.",
+        f"Haga clic en el menu {menu_path}.",
     ]
 
     vars_value = params.get("vars")
-    vars_label = guide.param_map.get("vars")
+    vars_label = resolve_label("vars", "Variables")
     if vars_value and vars_label:
         if isinstance(vars_value, list):
             joined = ", ".join(str(v) for v in vars_value)
@@ -60,7 +80,7 @@ def build_gui_instructions(tool_name: str, params: dict) -> str:
         lines.append(f"Arrastre las variables {joined} al panel de {vars_label}.")
 
     group_value = params.get("group")
-    group_label = guide.param_map.get("group")
+    group_label = resolve_label("group", "Grouping Variable")
     if group_value and group_label:
         lines.append(f"Arrastre la variable {group_value} al panel {group_label}.")
 
@@ -68,7 +88,7 @@ def build_gui_instructions(tool_name: str, params: dict) -> str:
         if key in {"vars", "group", "dataset_path"}:
             continue
         if isinstance(value, bool) and value:
-            label = guide.param_map.get(key)
+            label = resolve_label(key, key)
             if label:
                 lines.append(f"Configure {label} activando la opcion {value}.")
 

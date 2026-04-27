@@ -15,3 +15,9 @@ Documentación de referencia
 - [Especificaciones iniciales](Documentacion/Specs/Especificaciones%20Requisitos%20Iniciales.md)
 - [Diseño técnico](Documentacion/Specs/Dise%C3%B1o%20T%C3%A9cnico%20del%20Servidor%20MCP%20jamovi.md)
 - [Síntesis operativa](Documentacion/DocumentacionCompleta.md)
+
+Flujo SDD actual
+- Constitución del proyecto: [.specify/memory/constitution.md](.specify/memory/constitution.md)
+- Feature activa: [specs/001-mcp-jamovi/spec.md](specs/001-mcp-jamovi/spec.md)
+- Plan técnico: [specs/001-mcp-jamovi/plan.md](specs/001-mcp-jamovi/plan.md)
+- Lista de tareas: [specs/001-mcp-jamovi/tasks.md](specs/001-mcp-jamovi/tasks.md)

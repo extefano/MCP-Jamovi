@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import threading
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 
 TABLE_JSON_LIMIT_BYTES = 2 * 1024 * 1024
+SESSION_TTL_SECONDS = int(os.environ.get("JAMOVI_SESSION_TTL_SECONDS", "1800"))
+
+
+@dataclass
+class SessionHandle:
+    dataset_path: str
+    created_at: float
+    last_access_at: float
 
 
 @dataclass(frozen=True)
@@ -43,13 +55,76 @@ class AnalysisExecutionError(RuntimeError):
         }
 
 
+_SESSION_STORE: dict[str, SessionHandle] = {}
+_SESSION_LOCK = threading.Lock()
+
+
+def _cleanup_expired_sessions_unlocked(now_ts: float) -> int:
+    expired = [
+        sid
+        for sid, handle in _SESSION_STORE.items()
+        if (now_ts - handle.last_access_at) > SESSION_TTL_SECONDS
+    ]
+    for sid in expired:
+        del _SESSION_STORE[sid]
+    return len(expired)
+
+
+def cleanup_expired_sessions() -> int:
+    now_ts = time.time()
+    with _SESSION_LOCK:
+        return _cleanup_expired_sessions_unlocked(now_ts)
+
+
+def load_dataset_to_memory(dataset_path: str) -> str:
+    # Current bridge runs one R subprocess per call. We keep a Python-side
+    # session map to avoid re-sending dataset path state from clients.
+    path = _ensure_exists(dataset_path)
+    session_id = uuid.uuid4().hex
+    now_ts = time.time()
+    with _SESSION_LOCK:
+        _cleanup_expired_sessions_unlocked(now_ts)
+        _SESSION_STORE[session_id] = SessionHandle(
+            dataset_path=str(path),
+            created_at=now_ts,
+            last_access_at=now_ts,
+        )
+    return session_id
+
+
+def get_session_dataset_path(session_id: str) -> str:
+    now_ts = time.time()
+    with _SESSION_LOCK:
+        _cleanup_expired_sessions_unlocked(now_ts)
+        handle = _SESSION_STORE.get(session_id)
+        if handle is None:
+            raise RBridgeError(f"Session no encontrada o expirada: {session_id}")
+        handle.last_access_at = now_ts
+        return handle.dataset_path
+
+
+def release_session(session_id: str) -> bool:
+    with _SESSION_LOCK:
+        return _SESSION_STORE.pop(session_id, None) is not None
+
+
 def _map_r_error(stderr: str) -> BridgeMappedError | None:
     lowered = stderr.lower()
     patterns = [
         (
+            "singular matrix",
+            BridgeMappedError(
+                code=-32602,
+                type="DataError",
+                message="Colinealidad extrema detectada en el modelo.",
+                suggested_action="Elimina variables redundantes antes de reintentar.",
+                r_pattern="singular matrix",
+            ),
+        ),
+        (
             "must have exactly 2 levels",
             BridgeMappedError(
-                code=-32001,
+                code=-32602,
                 type="DataError",
                 message="La variable de agrupacion requiere exactamente 2 niveles para un T-Test.",
                 suggested_action="Usa ANOVA para mas de 2 niveles.",
@@ -59,7 +134,7 @@ def _map_r_error(stderr: str) -> BridgeMappedError | None:
         (
             "cannot be constant",
             BridgeMappedError(
-                code=-32002,
+                code=-32602,
                 type="VarianceError",
                 message="La variable seleccionada no tiene varianza.",
                 suggested_action="Selecciona otra variable dependiente o filtra correctamente.",
@@ -69,7 +144,7 @@ def _map_r_error(stderr: str) -> BridgeMappedError | None:
         (
             "missing values in 'x'",
             BridgeMappedError(
-                code=-32003,
+                code=-32602,
                 type="MissingDataError",
                 message="Se detectaron valores perdidos en la variable analizada.",
                 suggested_action="Filtra NA o cambia la politica de exclusion de casos.",
@@ -79,7 +154,7 @@ def _map_r_error(stderr: str) -> BridgeMappedError | None:
         (
             "is not a factor",
             BridgeMappedError(
-                code=-32004,
+                code=-32602,
                 type="DataTypeError",
                 message="La variable indicada debe ser nominal u ordinal.",
                 suggested_action="Convierte la variable a factor en jamovi o selecciona una variable categorica.",
@@ -89,7 +164,7 @@ def _map_r_error(stderr: str) -> BridgeMappedError | None:
         (
             "not enough observations",
             BridgeMappedError(
-                code=-32005,
+                code=-32602,
                 type="SampleSizeError",
                 message="N insuficiente para el analisis solicitado.",
                 suggested_action="Aumenta la muestra o reduce complejidad del analisis.",
@@ -320,7 +395,7 @@ def run_ttest_is(
     if levels != 2:
         raise AnalysisExecutionError(
             BridgeMappedError(
-                code=-32001,
+                code=-32602,
                 type="DataError",
                 message="La variable de agrupacion requiere exactamente 2 niveles para un T-Test.",
                 suggested_action="Usa ANOVA para mas de 2 niveles.",

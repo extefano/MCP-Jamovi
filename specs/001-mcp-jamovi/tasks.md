@@ -7,9 +7,9 @@ Regla: cada tarea es atomica y verificable. No se inicia codificacion hasta cerr
 
 ## Fase 0 - Gobernanza SDD
 
-- [x] T0.1 Crear `.specify/spec.md`.
-- [x] T0.2 Crear `.specify/plan.md`.
-- [x] T0.3 Crear `.specify/tasks.md`.
+- [x] T0.1 Crear `spec.md`.
+- [x] T0.2 Crear `plan.md`.
+- [x] T0.3 Crear `tasks.md`.
 
 ## Fase 1 - Persistencia de Sesion R
 
