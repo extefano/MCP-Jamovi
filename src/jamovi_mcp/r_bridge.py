@@ -55,8 +55,12 @@ class AnalysisExecutionError(RuntimeError):
         }
 
 
-_SESSION_STORE: dict[str, SessionHandle] = {}
-_SESSION_LOCK = threading.Lock()
+session_store: dict[str, SessionHandle] = {}
+session_store_lock = threading.Lock()
+
+# Backward-compatible aliases for existing tests/imports.
+_SESSION_STORE = session_store
+_SESSION_LOCK = session_store_lock
 
 
 def _cleanup_expired_sessions_unlocked(now_ts: float) -> int:
@@ -72,7 +76,7 @@ def _cleanup_expired_sessions_unlocked(now_ts: float) -> int:
 
 def cleanup_expired_sessions() -> int:
     now_ts = time.time()
-    with _SESSION_LOCK:
+    with session_store_lock:
         return _cleanup_expired_sessions_unlocked(now_ts)
 
 
@@ -82,9 +86,9 @@ def load_dataset_to_memory(dataset_path: str) -> str:
     path = _ensure_exists(dataset_path)
     session_id = uuid.uuid4().hex
     now_ts = time.time()
-    with _SESSION_LOCK:
+    with session_store_lock:
         _cleanup_expired_sessions_unlocked(now_ts)
-        _SESSION_STORE[session_id] = SessionHandle(
+        session_store[session_id] = SessionHandle(
             dataset_path=str(path),
             created_at=now_ts,
             last_access_at=now_ts,
@@ -92,11 +96,15 @@ def load_dataset_to_memory(dataset_path: str) -> str:
     return session_id
 
 
+def tool_load_dataset(file_path: str) -> str:
+    return load_dataset_to_memory(file_path)
+
+
 def get_session_dataset_path(session_id: str) -> str:
     now_ts = time.time()
-    with _SESSION_LOCK:
+    with session_store_lock:
         _cleanup_expired_sessions_unlocked(now_ts)
-        handle = _SESSION_STORE.get(session_id)
+        handle = session_store.get(session_id)
         if handle is None:
             raise RBridgeError(f"Session no encontrada o expirada: {session_id}")
         handle.last_access_at = now_ts
@@ -104,8 +112,8 @@ def get_session_dataset_path(session_id: str) -> str:
 
 
 def release_session(session_id: str) -> bool:
-    with _SESSION_LOCK:
-        return _SESSION_STORE.pop(session_id, None) is not None
+    with session_store_lock:
+        return session_store.pop(session_id, None) is not None
 
 
 def _map_r_error(stderr: str) -> BridgeMappedError | None:

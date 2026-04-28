@@ -1,0 +1,2 @@
+[console_scripts]
+jamovi-mcp = jamovi_mcp.server:main

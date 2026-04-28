@@ -1,5 +1,5 @@
 # Dockerfile optimizado para entorno Híbrido Python-R (jamovi MCP)
-FROM python:3.10-slim
+FROM python:3.10-slim-bookworm
 
 # Evitar prompts durante la instalación
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -21,12 +21,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libtiff5-dev \
     libjpeg-dev \
+    cmake \
+    libuv1-dev \
+    libnode-dev \
+    ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Instalar paquetes de R críticos para jamovi
 # jmv: El motor estadístico
 # jmvReadWrite: Para manejar archivos .omv
-RUN R -e "install.packages(c('jmv', 'jmvReadWrite', 'jsonlite'), repos='https://cloud.r-project.org/')"
+RUN R -e "options(download.file.method='libcurl', timeout=300); install.packages(c('jmv', 'jmvReadWrite', 'jsonlite'), repos='https://packagemanager.posit.co/cran/__linux__/bookworm/latest'); \
+    if (!all(c('jmv', 'jmvReadWrite', 'jsonlite') %in% installed.packages()[,'Package'])) { q(status=1, save='no') }"
 
 # 3. Configurar entorno Python
 WORKDIR /app
